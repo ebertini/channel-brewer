@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Channel Brewer</title>
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --mid: #767676;
+    --line: #e2e2e2;
+    --bg: #fbfbfa;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 32px 64px;
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; }
+  .picker { flex: 0 0 272px; }
+  h1 {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin: 0 0 32px;
+  }
+  h1 span { color: var(--mid); font-weight: 400; margin-left: 10px; }
+
+  .cols { display: flex; gap: 40px; align-items: flex-start; }
+
+  /* ---- matrix ---- */
+  .label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--mid);
+    margin-bottom: 12px;
+  }
+  table { border-collapse: collapse; margin-top: 62px; }
+  td { padding: 0; }
+  th {
+    width: 76px;
+    height: 30px;
+    padding: 0 7px 0 0;
+    font-weight: 400;
+    font-size: 11px;
+    color: var(--mid);
+    text-align: right;
+    white-space: nowrap;
+    transition: color 90ms;
+  }
+  th.on,
+  th.hi { color: var(--ink); font-weight: 600; }
+  .cell {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--line);
+    margin: 1px;
+    background: #fff;
+    cursor: pointer;
+    transition: background 90ms, border-color 90ms;
+  }
+  .cell:hover { background: #d9d9d9; }
+  .cell.blank { border-color: transparent; background: none; cursor: default; }
+  .cell.name {
+    position: relative;
+    border-color: transparent;
+    background: none;
+    cursor: default;
+  }
+  /* rises from the bottom of the diagonal square, i.e. from the top of
+     the first cell of its column, into the empty space above */
+  .cell.name span {
+    position: absolute;
+    left: 21px;
+    bottom: 2px;
+    transform: rotate(-90deg);
+    transform-origin: 0 100%;
+    line-height: 12px;
+    white-space: nowrap;
+    font-size: 11px;
+    color: var(--mid);
+    transition: color 90ms;
+  }
+  .cell.name span.on,
+  .cell.name span.hi { color: var(--ink); font-weight: 600; }
+  .cell.on,
+  .cell.on:hover {
+    background: var(--ink);
+    border-color: var(--ink);
+    box-shadow: 0 0 0 2px rgba(26, 26, 26, 0.2);
+  }
+
+  /* ---- preview ---- */
+  .preview { flex: 0 0 440px; min-width: 0; }
+  .frame { background: #fff; border: 1px solid var(--line); overflow: hidden; }
+  svg { display: block; width: 100%; height: auto; }
+  .legends { display: flex; gap: 40px; margin-top: 18px; flex-wrap: wrap; }
+  .legend { font-size: 11px; color: var(--mid); }
+  .legend b { color: var(--ink); font-weight: 500; }
+  .legend .strip { margin-top: 6px; }
+  .foot {
+    margin-top: 14px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 11px;
+    color: var(--mid);
+  }
+  .seg { display: flex; }
+  .seg button { border-radius: 0; margin-left: -1px; }
+  .seg button:first-child { border-radius: 3px 0 0 3px; margin-left: 0; }
+  .seg button:last-child { border-radius: 0 3px 3px 0; }
+  .seg button.on {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: #fff;
+    position: relative;
+  }
+  .count { display: flex; align-items: center; gap: 8px; }
+  .count input { width: 88px; accent-color: var(--ink); }
+  .count b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+  button {
+    font: inherit;
+    font-size: 11px;
+    color: var(--ink);
+    background: #fff;
+    border: 1px solid #cfcfcf;
+    border-radius: 3px;
+    padding: 5px 11px;
+    cursor: pointer;
+  }
+  button:hover { background: #f2f2f2; }
+
+  /* ---- properties ---- */
+  .notes {
+    flex: 0 0 176px;
+    padding-top: 27px;
+    font-size: 11px;
+    line-height: 1.55;
+    color: var(--mid);
+  }
+  .notes section + section { margin-top: 16px; }
+  .notes h2 {
+    font-size: 10px;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: #b0b0b0;
+    margin: 0 0 3px;
+  }
+  .notes .name { color: var(--ink); }
+  .notes .steps { color: #b8b8b8; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Channel Brewer <span>two variables, two visual channels</span></h1>
+
+  <div class="cols">
+    <div class="picker">
+      <div class="label">Variable 1 &darr; &nbsp;&times;&nbsp; Variable 2 &rarr;</div>
+      <table id="matrix"></table>
+    </div>
+
+    <div class="preview">
+      <div class="label" id="combo">&nbsp;</div>
+      <div class="frame">
+        <svg id="stage" viewBox="0 0 600 400" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="legends" id="legends"></div>
+
+      <div class="foot">
+        <div class="seg" id="mode">
+          <button data-mode="grid" class="on">Grid</button><button data-mode="scatter">Scatter</button>
+        </div>
+        <label class="count">objects
+          <input id="count" type="range" min="5" max="300" step="1" value="60">
+          <b id="countVal">60</b>
+        </label>
+        <button id="shuffle">Shuffle</button>
+      </div>
+      <div class="foot">
+        <label class="count">spatial correlation
+          <input id="corr" type="range" min="0" max="100" step="1" value="0">
+          <b id="corrVal">0%</b>
+        </label>
+        <div class="seg" id="target">
+          <button data-t="1">V1</button><button data-t="2">V2</button><button data-t="both" class="on">both</button>
+        </div>
+        <div class="seg" id="field">
+          <button data-f="gradient" class="on">gradient</button><button data-f="regions">regions</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes" id="notes"></div>
+  </div>
+</div>
+
+<script>
+const SVGNS = "http://www.w3.org/2000/svg";
+const LEVELS = 5;
+const POOL = 300;
+const W = 600, H = 400, PAD = 36;
+
+/* ---------------- channels ---------------- */
+
+const CHANNELS = ["size", "lightness", "hue", "orientation", "shape", "texture"];
+
+const SIZES     = [0.5, 0.75, 1.0, 1.3, 1.65];
+const LIGHTNESS = [0, 1, 2, 3, 4];   // class within a ColorBrewer ramp
+const HUES      = [0, 1, 2, 3, 4];   // which ColorBrewer ramp
+const ANGLES    = [0, 36, 72, 108, 144];
+const SHAPES    = ["circle", "triangle", "square", "plus", "chevron"];
+const TEXTURES  = [9, 6.5, 4.5, 3, 1.9];   // hatch spacing, coarse to fine
+
+const DEFAULTS = { size: 1, light: null, hue: null, angle: 0, shape: "circle", texture: null };
+
+const SOLO_CLASS = 3;        // class used when only hue varies
+const FLAT = "#4d4d4d";      // neutral mark when neither colour channel is used
+
+// a circle can't show rotation, so the neutral mark becomes a bar
+// whenever orientation is one of the two channels
+function baseShape() {
+  return (sel.c1 === "orientation" || sel.c2 === "orientation") ? "bar" : "circle";
+}
+
+/* ---------------- colour ----------------
+   Hue and lightness are two axes of the same colour, so they cannot be two
+   separate fills. ColorBrewer's single-hue sequential palettes already have
+   exactly this structure: the ramp is the hue, the class within it is the
+   lightness. Values are the 6-class palettes with the lightest class
+   dropped, which is too pale to see as a mark on white. */
+
+const RAMPS = [
+  ["#c6dbef", "#9ecae1", "#6baed6", "#3182bd", "#08519c"],  // Blues
+  ["#c7e9c0", "#a1d99b", "#74c476", "#31a354", "#006d2c"],  // Greens
+  ["#fdd0a2", "#fdae6b", "#fd8d3c", "#e6550d", "#a63603"],  // Oranges
+  ["#fcbba1", "#fc9272", "#fb6a4a", "#de2d26", "#a50f15"],  // Reds
+  ["#dadaeb", "#bcbddc", "#9e9ac8", "#756bb1", "#54278f"],  // Purples
+];
+
+const GREYS = ["#d9d9d9", "#bdbdbd", "#969696", "#636363", "#252525"];
+
+function colorOf(m) {
+  if (m.hue === null) return m.light === null ? FLAT : GREYS[m.light];
+  return RAMPS[m.hue][m.light === null ? SOLO_CLASS : m.light];
+}
+
+/* ---------------- properties ----------------
+   Bertin's characteristics of each visual variable, plus how the two
+   behave when they are read at the same time. */
+
+const PROPS = {
+  size:        { tags: "selective · ordered · quantitative · dissociative", steps: "4–5" },
+  lightness:   { tags: "selective · ordered · dissociative",                steps: "5–6" },
+  texture:     { tags: "selective · ordered · associative",                 steps: "4–5" },
+  hue:         { tags: "selective · associative",                           steps: "7–8" },
+  orientation: { tags: "selective · associative",                           steps: "4" },
+  shape:       { tags: "associative, not selective",                        steps: "many, unordered" },
+};
+
+const PAIRS = {
+  "hue|size":            "largely separable; hue weakens on the smallest marks",
+  "lightness|size":      "partly integral; small marks lose lightness steps",
+  "orientation|size":    "largely separable; small marks lose orientation",
+  "shape|size":          "interfering; small marks lose shape",
+  "size|texture":        "interfering; small marks carry little texture",
+  "hue|lightness":       "partly integral; both are colour, and dark or pale narrows hue",
+  "lightness|orientation": "largely separable",
+  "lightness|shape":     "separable; pale marks lose shape",
+  "lightness|texture":   "integral; hatch density itself reads as lightness",
+  "hue|orientation":     "largely separable",
+  "hue|shape":           "separable",
+  "hue|texture":         "largely separable; fine hatch dilutes hue",
+  "orientation|shape":   "interfering; rotation changes apparent shape",
+  "orientation|texture": "coupled; the hatch rotates with the mark",
+  "shape|texture":       "interfering; thin shapes hold few hatch lines",
+};
+
+function pairNote(a, b) {
+  return PAIRS[[a, b].sort().join("|")] || "";
+}
+
+/* ---------------- data ---------------- */
+
+let seed = 7;
+function rng() {
+  seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+  let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+  return ((t ^ t >>> 14) >>> 0) / 4294967296;
+}
+
+// One pool of values, sliced to the requested count, so moving the
+// slider adds and removes marks instead of re-rolling every value.
+let pool = [];
+let data = [];
+let count = 60;
+
+// Two independent lattices of random values, interpolated smoothly, give
+// each variable a blobby 2D field with no preferred direction.
+const LATTICE = 3;
+let noise1 = [], noise2 = [];
+
+function makeNoise() {
+  const n = (LATTICE + 1) * (LATTICE + 1);
+  noise1 = []; noise2 = [];
+  for (let i = 0; i < n; i++) noise1.push(rng());
+  for (let i = 0; i < n; i++) noise2.push(rng());
+}
+
+function sampleField(grid, u, v) {
+  const gx = Math.max(0, Math.min(LATTICE - 0.0001, u * LATTICE));
+  const gy = Math.max(0, Math.min(LATTICE - 0.0001, v * LATTICE));
+  const x0 = Math.floor(gx), y0 = Math.floor(gy);
+  const ease = t => t * t * (3 - 2 * t);
+  const tx = ease(gx - x0), ty = ease(gy - y0);
+  const at = (x, y) => grid[y * (LATTICE + 1) + x];
+  const top = at(x0, y0) * (1 - tx) + at(x0 + 1, y0) * tx;
+  const bot = at(x0, y0 + 1) * (1 - tx) + at(x0 + 1, y0 + 1) * tx;
+  return top * (1 - ty) + bot * ty;
+}
+
+function makePool() {
+  makeNoise();
+  pool = [];
+  for (let i = 0; i < POOL; i++) {
+    pool.push({
+      v1: Math.floor(rng() * LEVELS),
+      v2: Math.floor(rng() * LEVELS),
+      rx: rng(),
+      ry: rng(),
+      rc1: rng(),
+      rc2: rng(),
+      x: 0, y: 0,
+    });
+  }
+  data = pool.slice(0, count);
+}
+
+/* ---------------- selection ---------------- */
+
+let sel = { c1: "hue", c2: "size" };
+let mode = "grid";
+let corr = 0;          // 0 = values independent of position, 1 = fully determined by it
+let target = "both";   // which variable the correlation applies to
+let field = "gradient";// shape of the spatial structure
+
+/* ---------------- layout ----------------
+   Marks are either packed into an even grid or scattered at random over
+   the whole canvas. Position is deliberately not a channel here. */
+
+let markScale = 1;
+
+function computeLayout() {
+  const iw = W - 2 * PAD, ih = H - 2 * PAD;
+  const cx = PAD + iw / 2, cy = PAD + ih / 2;
+  const n = data.length;
+  let step;
+
+  if (mode === "grid") {
+    const cols = Math.max(1, Math.round(Math.sqrt(n * iw / ih)));
+    const rows = Math.ceil(n / cols);
+    const sx = iw / cols, sy = ih / rows;
+    step = Math.min(sx, sy);
+    data.forEach((d, i) => {
+      d.x = cx + (i % cols - (cols - 1) / 2) * sx;
+      d.y = cy + (Math.floor(i / cols) - (rows - 1) / 2) * sy;
+    });
+  } else {
+    step = Math.sqrt(iw * ih / n);
+    data.forEach(d => {
+      d.x = cx + (d.rx - 0.5) * iw * 0.97;
+      d.y = cy + (d.ry - 0.5) * ih * 0.97;
+    });
+  }
+
+  // shrink marks as the field gets crowded so they stay legible
+  markScale = Math.max(0.3, Math.min(1, step / 30));
+}
+
+/* ---------------- spatial correlation ----------------
+   Layout is computed first, then each mark's values are drawn either from
+   its random draw or from a gradient implied by where it landed (V1 runs
+   left to right, V2 top to bottom). The slider is the share of marks that
+   take the spatial value, so patterns emerge gradually. */
+
+// Interpolated noise clumps around its middle, so levels are assigned by
+// rank instead of by value; that keeps all five equally represented, as
+// they are under the gradient.
+function regionLevels(grid) {
+  const iw = W - 2 * PAD, ih = H - 2 * PAD;
+  const vals = data.map(d => sampleField(grid, (d.x - PAD) / iw, (d.y - PAD) / ih));
+  const order = vals.map((_, i) => i).sort((a, b) => vals[a] - vals[b]);
+  const out = new Array(vals.length);
+  order.forEach((idx, rank) => {
+    out[idx] = Math.min(LEVELS - 1, Math.floor(rank / order.length * LEVELS));
+  });
+  return out;
+}
+
+function assignValues() {
+  const iw = W - 2 * PAD, ih = H - 2 * PAD;
+  const level = f => Math.max(0, Math.min(LEVELS - 1, Math.floor(f * LEVELS)));
+  const t1 = target === "1" || target === "both";
+  const t2 = target === "2" || target === "both";
+  const regions = field === "regions";
+  const r1 = regions ? regionLevels(noise1) : null;
+  const r2 = regions ? regionLevels(noise2) : null;
+
+  data.forEach((d, i) => {
+    const g1 = regions ? r1[i] : level((d.x - PAD) / iw);
+    const g2 = regions ? r2[i] : level((d.y - PAD) / ih);
+    d.a1 = (t1 && d.rc1 < corr) ? g1 : d.v1;
+    d.a2 = (t2 && d.rc2 < corr) ? g2 : d.v2;
+  });
+}
+
+/* ---------------- rendering ---------------- */
+
+function el(tag, attrs) {
+  const n = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  return n;
+}
+
+// Size is baked into the geometry rather than applied as a scale()
+// transform: a transform would scale the texture pattern along with the
+// mark, tangling the two channels together.
+function glyph(shape, s) {
+  const k = v => +(v * s).toFixed(2);
+  switch (shape) {
+    case "circle":   return el("circle", { r: k(9) });
+    case "bar":      return el("rect", { x: k(-3.2), y: k(-9.5), width: k(6.4), height: k(19), rx: k(1.6) });
+    case "square":   return el("rect", { x: k(-7.5), y: k(-7.5), width: k(15), height: k(15) });
+    case "triangle": return el("path", { d: `M0,${k(-10)} L${k(8.7)},${k(7)} L${k(-8.7)},${k(7)} Z` });
+    case "plus":     return el("path", { d: `M${k(-2.8)},${k(-10)} L${k(2.8)},${k(-10)} L${k(2.8)},${k(-2.8)} L${k(10)},${k(-2.8)} L${k(10)},${k(2.8)} L${k(2.8)},${k(2.8)} L${k(2.8)},${k(10)} L${k(-2.8)},${k(10)} L${k(-2.8)},${k(2.8)} L${k(-10)},${k(2.8)} L${k(-10)},${k(-2.8)} L${k(-2.8)},${k(-2.8)} Z` });
+    case "chevron":  return el("path", { d: `M${k(-9)},${k(-7.5)} L0,${k(1.5)} L${k(9)},${k(-7.5)} L${k(9)},${k(-1)} L0,${k(8)} L${k(-9)},${k(-1)} Z` });
+  }
+}
+
+// A drawing context owns a <defs> and the set of hatch patterns already
+// registered in it, so each svg (field or legend swatch) is self-contained.
+let ctxSeq = 0;
+function context(svg) {
+  const defs = el("defs", {});
+  svg.appendChild(defs);
+  return { defs, seen: new Set(), prefix: `c${ctxSeq++}` };
+}
+
+function hatch(ctx, level, color) {
+  const id = `${ctx.prefix}tx${level}-${color.replace("#", "")}`;
+  if (!ctx.seen.has(id)) {
+    ctx.seen.add(id);
+    const sp = TEXTURES[level];
+    const pat = el("pattern", {
+      id,
+      width: sp, height: sp,
+      patternUnits: "userSpaceOnUse",
+      patternTransform: "rotate(45)",
+    });
+    pat.appendChild(el("line", {
+      x1: 0, y1: 0, x2: 0, y2: sp,
+      stroke: color, "stroke-width": 1.1,
+    }));
+    ctx.defs.appendChild(pat);
+  }
+  return `url(#${id})`;
+}
+
+function encode(level1, level2) {
+  const m = Object.assign({}, DEFAULTS, { shape: baseShape() });
+  const apply = (channel, level) => {
+    switch (channel) {
+      case "size":        m.size    = SIZES[level];     break;
+      case "lightness":   m.light   = LIGHTNESS[level]; break;
+      case "hue":         m.hue     = HUES[level];      break;
+      case "orientation": m.angle   = ANGLES[level];    break;
+      case "shape":       m.shape   = SHAPES[level];    break;
+      case "texture":     m.texture = level;            break;
+    }
+  };
+  apply(sel.c1, level1);
+  apply(sel.c2, level2);
+  m.size *= markScale;
+  return m;
+}
+
+function mark(ctx, m, x, y) {
+  const g = el("g", { transform: `translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${m.angle})` });
+  const shape = glyph(m.shape, m.size);
+  const color = colorOf(m);
+  if (m.texture === null) {
+    shape.setAttribute("fill", color);
+  } else {
+    // a hatched mark needs an outline or it has no readable boundary
+    shape.setAttribute("fill", hatch(ctx, m.texture, color));
+    shape.setAttribute("stroke", color);
+    shape.setAttribute("stroke-width", 1);
+  }
+  g.appendChild(shape);
+  return g;
+}
+
+function draw() {
+  const stage = document.getElementById("stage");
+  stage.textContent = "";
+  const ctx = context(stage);
+  computeLayout();
+  assignValues();
+  for (const d of data) stage.appendChild(mark(ctx, encode(d.a1, d.a2), d.x, d.y));
+}
+
+/* ---------------- legends ---------------- */
+
+function swatch(channel, level) {
+  const m = Object.assign({}, DEFAULTS, { shape: baseShape() });
+  if (channel === "size")        m.size    = SIZES[level];
+  if (channel === "lightness")   m.light   = LIGHTNESS[level];
+  if (channel === "hue")         m.hue     = HUES[level];
+  if (channel === "orientation") m.angle   = ANGLES[level];
+  if (channel === "shape")       m.shape   = SHAPES[level];
+  if (channel === "texture")     m.texture = level;
+  const svg = el("svg", { width: 34, height: 36, viewBox: "0 0 34 36" });
+  const ctx = context(svg);
+  svg.appendChild(mark(ctx, m, 17, 18));
+  return svg;
+}
+
+function legendFor(varName, channel) {
+  const box = document.createElement("div");
+  box.className = "legend";
+  const head = document.createElement("div");
+  head.innerHTML = `${varName} &nbsp;<b>${channel}</b>`;
+  box.appendChild(head);
+
+  const strip = document.createElement("div");
+  strip.className = "strip";
+  strip.style.display = "flex";
+  strip.style.alignItems = "center";
+  for (let i = 0; i < LEVELS; i++) strip.appendChild(swatch(channel, i));
+  box.appendChild(strip);
+  return box;
+}
+
+function drawNotes() {
+  const block = (label, channel) => `
+    <section>
+      <h2>${label}</h2>
+      <div><span class="name">${channel}</span></div>
+      <div>${PROPS[channel].tags}</div>
+      <div class="steps">${PROPS[channel].steps} steps</div>
+    </section>`;
+  document.getElementById("notes").innerHTML =
+    block("Variable 1", sel.c1) +
+    block("Variable 2", sel.c2) +
+    `<section><h2>Read together</h2><div>${pairNote(sel.c1, sel.c2)}</div></section>`;
+}
+
+function drawLegends() {
+  const host = document.getElementById("legends");
+  host.textContent = "";
+  host.appendChild(legendFor("Variable 1", sel.c1));
+  host.appendChild(legendFor("Variable 2", sel.c2));
+  document.getElementById("combo").textContent = `${sel.c1} × ${sel.c2}`;
+}
+
+/* ---------------- matrix ---------------- */
+
+// Only the lower triangle is drawn: a pair is the same pair either way
+// round. Row labels sit in the gutter; column labels sit on the diagonal,
+// directly above the first square of the column they name.
+function buildMatrix() {
+  const tbody = document.createElement("tbody");
+  CHANNELS.forEach((r, ri) => {
+    const tr = document.createElement("tr");
+    const th = document.createElement("th");
+    th.textContent = r;
+    th.dataset.name = r;
+    tr.appendChild(th);
+    CHANNELS.forEach((c, ci) => {
+      const td = document.createElement("td");
+      const div = document.createElement("div");
+      div.className = "cell";
+      if (ri > ci) {
+        div.dataset.r = r;
+        div.dataset.c = c;
+        div.addEventListener("click", () => { sel = { c1: r, c2: c }; render(); });
+        div.addEventListener("mouseenter", () => highlight(r, c));
+        div.addEventListener("mouseleave", () => highlight(null, null));
+      } else if (ri === ci) {
+        div.className += " name";
+        const span = document.createElement("span");
+        span.textContent = r;
+        span.dataset.name = r;
+        div.appendChild(span);
+      } else {
+        div.className += " blank";
+      }
+      td.appendChild(div);
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  document.getElementById("matrix").appendChild(tbody);
+}
+
+// transient label highlight while the pointer is over a square
+function highlight(rowName, colName) {
+  for (const th of document.querySelectorAll("#matrix th")) {
+    th.classList.toggle("hi", th.dataset.name === rowName);
+  }
+  for (const span of document.querySelectorAll(".cell.name span")) {
+    span.classList.toggle("hi", span.dataset.name === colName);
+  }
+}
+
+function markSelection() {
+  for (const cell of document.querySelectorAll(".cell")) {
+    cell.classList.toggle("on", cell.dataset.r === sel.c1 && cell.dataset.c === sel.c2);
+  }
+  for (const th of document.querySelectorAll("#matrix th")) {
+    th.classList.toggle("on", th.dataset.name === sel.c1);
+  }
+  for (const span of document.querySelectorAll(".cell.name span")) {
+    span.classList.toggle("on", span.dataset.name === sel.c2);
+  }
+}
+
+/* ---------------- boot ---------------- */
+
+function render() {
+  markSelection();
+  drawNotes();
+  drawLegends();
+  draw();
+}
+
+document.getElementById("shuffle").addEventListener("click", () => {
+  seed = (Math.random() * 1e9) | 0;
+  makePool();
+  draw();
+});
+
+document.getElementById("mode").addEventListener("click", e => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  mode = btn.dataset.mode;
+  for (const b of e.currentTarget.children) b.classList.toggle("on", b === btn);
+  draw();
+});
+
+const countInput = document.getElementById("count");
+countInput.addEventListener("input", () => {
+  count = +countInput.value;
+  document.getElementById("countVal").textContent = count;
+  data = pool.slice(0, count);
+  draw();
+});
+
+const corrInput = document.getElementById("corr");
+corrInput.addEventListener("input", () => {
+  corr = +corrInput.value / 100;
+  document.getElementById("corrVal").textContent = `${corrInput.value}%`;
+  draw();
+});
+
+document.getElementById("field").addEventListener("click", e => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  field = btn.dataset.f;
+  for (const b of e.currentTarget.children) b.classList.toggle("on", b === btn);
+  draw();
+});
+
+document.getElementById("target").addEventListener("click", e => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  target = btn.dataset.t;
+  for (const b of e.currentTarget.children) b.classList.toggle("on", b === btn);
+  draw();
+});
+
+buildMatrix();
+makePool();
+render();
+</script>
+</body>
+</html>
