@@ -1,5 +1,7 @@
 # Channel Brewer
 
+![Chennel Brewer Preview](channel-brewer-teaser.png)
+
 Inspired by the popular color selection tool [Color Brewer](https://colorbrewer2.org/), Channel Brewer helps you explore and experience the use of **combinations of two visual channels** in data visualization. 
 
 
@@ -13,17 +15,17 @@ Open `index.html`. One file, no build, no server, no dependencies — it works f
 
 
 
-**Triangular Matrix** — Every cell is a combination of channels. Hovering a cell previews the pairs; clicking keeps it selected.
+- **Triangular Matrix:** Every cell is a combination of channels. Hovering a cell previews the pairs; clicking keeps it selected.
 
-**Main View** - The view in the middle gives you a sense of how the selected combination of channels looks.
+- **Main View:** The view in the middle gives you a sense of how the selected combination of channels looks.
 
-**Layout** - Select grid, scatter, or lines to simulate basic visualization arrangements.
+- **Layout:** Select grid, scatter, or lines to simulate basic visualization arrangements.
 
-**Number of Objects** - Move the slider to increase/decrease the number of objects.
+- **Number of Objects:** Move the slider to increase/decrease the number of objects.
 
-**Spatial Correlation** - Move the slider to increase the correlation that exists between the object placement and the channels. The correlation can be modulated for channel V1, V2, or both.
+- **Spatial Correlation:** Move the slider to increase the correlation that exists between the object placement and the channels. The correlation can be modulated for channel V1, V2, or both.
 
-**Legend** - Check the legend to see how many different levels are used for each channel. Change the number of levels by clicking on the plus/minus signs.
+- **Legend:** Check the legend to see how many different levels are used for each channel. Change the number of levels by clicking on the plus/minus signs.
 
 
 ## Not yet built
