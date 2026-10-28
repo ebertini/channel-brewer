@@ -7,7 +7,7 @@ Inspired by the popular color selection tool [Color Brewer](https://colorbrewer2
 ## Open in your browser
 
 
-** Open the tool by following [this link →](https://ebertini.github.io/channel-brewer/)**
+**Open the tool by following [this link →](https://ebertini.github.io/channel-brewer/)**
 
 
 ## Run locally
