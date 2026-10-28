@@ -4,16 +4,17 @@
 
 Inspired by the popular color selection tool [Color Brewer](https://colorbrewer2.org/), Channel Brewer helps you explore and experience the use of **combinations of two visual channels** in data visualization. 
 
+## Open in your browser
 
-**[Open the tool →](https://ebertini.github.io/channel-brewer/)**
+
+** Open the tool by following [this link →](https://ebertini.github.io/channel-brewer/)**
+
 
 ## Run locally
 
 Open `index.html`. One file, no build, no server, no dependencies — it works from `file://`.
 
 ## How to use it
-
-
 
 - **Triangular Matrix:** Every cell is a combination of channels. Hovering a cell previews the pairs; clicking keeps it selected.
 
