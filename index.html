@@ -88,6 +88,15 @@
   }
   .cell.name span.on,
   .cell.name span.hi { color: var(--ink); font-weight: 600; }
+  /* channels a line mark can't carry */
+  .cell.na,
+  .cell.na:hover {
+    background: repeating-linear-gradient(45deg, #f4f4f4 0 2px, #fff 2px 5px);
+    border-color: #ececec;
+    cursor: not-allowed;
+  }
+  th.na,
+  .cell.name span.na { color: #c8c8c8; }
   .cell.on,
   .cell.on:hover {
     background: var(--ink);
@@ -96,13 +105,34 @@
   }
 
   /* ---- preview ---- */
-  .preview { flex: 0 0 440px; min-width: 0; }
+  .preview { flex: 0 0 auto; min-width: 0; }
+  /* legends sit beside the field, top-aligned with it */
+  .stagerow { display: flex; gap: 28px; align-items: flex-start; }
+  .stagecol { flex: 0 0 440px; min-width: 0; }
   .frame { background: #fff; border: 1px solid var(--line); overflow: hidden; }
   svg { display: block; width: 100%; height: auto; }
-  .legends { display: flex; gap: 40px; margin-top: 18px; flex-wrap: wrap; }
+  .legends { flex: 0 0 178px; display: flex; flex-direction: column; gap: 20px; }
   .legend { font-size: 11px; color: var(--mid); }
   .legend b { color: var(--ink); font-weight: 500; }
-  .legend .strip { margin-top: 6px; }
+  .legend .strip { margin-top: 6px; flex-wrap: wrap; }
+  .lhead { display: flex; align-items: baseline; gap: 10px; }
+  .stepper { display: inline-flex; align-items: baseline; gap: 2px; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .stepper span { min-width: 1.4em; text-align: center; }
+  .stepper button {
+    border: 0; background: none; padding: 0 3px;
+    font-size: 12px; line-height: 1; color: var(--mid);
+  }
+  .stepper button:hover { background: none; color: var(--ink); }
+  .stepper button:disabled { color: #d4d4d4; cursor: default; }
+  .sw {
+    display: inline-flex;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: box-shadow 90ms;
+  }
+  .sw:hover { box-shadow: 0 0 0 1.5px #c9c9c9; }
+  .sw.on { box-shadow: 0 0 0 1.5px var(--ink); }
+  #isoInfo { font-size: 11px; color: var(--mid); }
   .foot {
     margin-top: 14px;
     display: flex;
@@ -137,25 +167,6 @@
   }
   button:hover { background: #f2f2f2; }
 
-  /* ---- properties ---- */
-  .notes {
-    flex: 0 0 176px;
-    padding-top: 27px;
-    font-size: 11px;
-    line-height: 1.55;
-    color: var(--mid);
-  }
-  .notes section + section { margin-top: 16px; }
-  .notes h2 {
-    font-size: 10px;
-    font-weight: 400;
-    text-transform: uppercase;
-    letter-spacing: 0.09em;
-    color: #b0b0b0;
-    margin: 0 0 3px;
-  }
-  .notes .name { color: var(--ink); }
-  .notes .steps { color: #b8b8b8; }
 </style>
 </head>
 <body>
@@ -170,42 +181,41 @@
 
     <div class="preview">
       <div class="label" id="combo">&nbsp;</div>
-      <div class="frame">
-        <svg id="stage" viewBox="0 0 600 400" preserveAspectRatio="xMidYMid meet"></svg>
-      </div>
-      <div class="legends" id="legends"></div>
+      <div class="stagerow">
+        <div class="stagecol">
+          <div class="frame">
+            <svg id="stage" viewBox="0 0 600 400" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
 
-      <div class="foot">
-        <div class="seg" id="mode">
-          <button data-mode="grid" class="on">Grid</button><button data-mode="scatter">Scatter</button>
+          <div class="foot">
+            <div class="seg" id="mode">
+              <button data-mode="grid" class="on">Grid</button><button data-mode="scatter">Scatter</button><button data-mode="lines">Lines</button>
+            </div>
+            <label class="count">objects
+              <input id="count" type="range" min="5" max="300" step="1" value="60">
+              <b id="countVal">60</b>
+            </label>
+            <button id="shuffle">Shuffle</button>
+          </div>
+          <div class="foot">
+            <label class="count">spatial correlation
+              <input id="corr" type="range" min="0" max="100" step="1" value="0">
+              <b id="corrVal">0%</b>
+            </label>
+            <div class="seg" id="target">
+              <button data-t="1">V1</button><button data-t="2">V2</button><button data-t="both" class="on">both</button>
+            </div>
+          </div>
         </div>
-        <label class="count">objects
-          <input id="count" type="range" min="5" max="300" step="1" value="60">
-          <b id="countVal">60</b>
-        </label>
-        <button id="shuffle">Shuffle</button>
-      </div>
-      <div class="foot">
-        <label class="count">spatial correlation
-          <input id="corr" type="range" min="0" max="100" step="1" value="0">
-          <b id="corrVal">0%</b>
-        </label>
-        <div class="seg" id="target">
-          <button data-t="1">V1</button><button data-t="2">V2</button><button data-t="both" class="on">both</button>
-        </div>
-        <div class="seg" id="field">
-          <button data-f="gradient" class="on">gradient</button><button data-f="regions">regions</button>
-        </div>
+
+        <div class="legends" id="legends"></div>
       </div>
     </div>
-
-    <div class="notes" id="notes"></div>
   </div>
 </div>
 
 <script>
 const SVGNS = "http://www.w3.org/2000/svg";
-const LEVELS = 5;
 const POOL = 300;
 const W = 600, H = 400, PAD = 36;
 
@@ -213,16 +223,68 @@ const W = 600, H = 400, PAD = 36;
 
 const CHANNELS = ["size", "lightness", "hue", "orientation", "shape", "texture"];
 
-const SIZES     = [0.5, 0.75, 1.0, 1.3, 1.65];
-const LIGHTNESS = [0, 1, 2, 3, 4];   // class within a ColorBrewer ramp
-const HUES      = [0, 1, 2, 3, 4];   // which ColorBrewer ramp
-const ANGLES    = [0, 36, 72, 108, 144];
-const SHAPES    = ["circle", "triangle", "square", "plus", "chevron"];
-const TEXTURES  = [9, 6.5, 4.5, 3, 1.9];   // hatch spacing, coarse to fine
+/* ---------------- steps ----------------
+   Each channel has its own number of steps (Bertin's "length"), set from
+   the legend. Ordered channels spread their steps over a fixed range, so
+   adding steps packs them closer together rather than extending the
+   range; at 5 steps every scale lands exactly on its original values.
+   Hue and shape are lists, so their maximum is the length of the list. */
+
+const STEPS_DEFAULT = 5;
+const STEPS_MIN = 2;
+const STEPS_MAX = { size: 9, lightness: 9, hue: 8, orientation: 8, shape: 8, texture: 9 };
+const steps = Object.fromEntries(CHANNELS.map(c => [c, STEPS_DEFAULT]));
+
+const SIZES     = [0.5, 0.75, 1.0, 1.3, 1.65];         // anchors, interpolated
+const SHAPES    = ["circle", "triangle", "square", "plus", "chevron", "star", "hexagon", "diamond"];
+const TEXTURE_RANGE = [9, 1.9];   // hatch spacing, coarse to fine
+const DASH_RANGE    = [14, 2.6];  // dash period on lines, coarse to fine
+
+// position of a step along its scale, 0 to 1
+const frac = (level, n) => n > 1 ? level / (n - 1) : 0;
+
+// piecewise-linear read of an anchor list at t in [0, 1]
+function along(anchors, t) {
+  const p = t * (anchors.length - 1), i = Math.min(anchors.length - 2, Math.floor(p));
+  return anchors[i] + (anchors[i + 1] - anchors[i]) * (p - i);
+}
+
+// geometric, so each step changes the spacing by the same ratio
+const geo = ([a, b], t) => a * Math.pow(b / a, t);
+
+/* ---------------- line marks ----------------
+   Lines are drawn as a slope chart: every object is a straight line from
+   one shared x to another, and only its two end heights vary. That is the
+   simplest case behind line charts, parallel coordinates and network
+   edges alike. The data sets the path, so it fixes the line's direction
+   and leaves no outline to vary: orientation and shape are not free
+   channels. Size becomes stroke width and texture a
+   dash pattern; dash and gap are equal, so every texture level carries the
+   same amount of ink. */
+
+const LINE_CHANNELS = new Set(["size", "lightness", "hue", "texture"]);
+const LINE_WIDTH = 3.2;      // stroke width at size 1
+// Width needs a wider range than point size to read as five steps: about
+// 0.6px to 8.3px before marks shrink for crowding.
+const LINE_SIZES = [0.2, 0.5, 1.0, 1.7, 2.6];
+const sizeOf = t => along(isLines() ? LINE_SIZES : SIZES, t);
+
+const isLines = () => mode === "lines";
+
+function available(channel) {
+  return !isLines() || LINE_CHANNELS.has(channel);
+}
+
+// what a channel actually varies on the current mark type
+function channelLabel(channel) {
+  if (isLines() && channel === "size") return "size (width)";
+  if (isLines() && channel === "texture") return "texture (dash)";
+  return channel;
+}
 
 const DEFAULTS = { size: 1, light: null, hue: null, angle: 0, shape: "circle", texture: null };
 
-const SOLO_CLASS = 3;        // class used when only hue varies
+const SOLO_T = 0.75;         // lightness used when only hue varies
 const FLAT = "#4d4d4d";      // neutral mark when neither colour channel is used
 
 // a circle can't show rotation, so the neutral mark becomes a bar
@@ -236,57 +298,72 @@ function baseShape() {
    separate fills. ColorBrewer's single-hue sequential palettes already have
    exactly this structure: the ramp is the hue, the class within it is the
    lightness. Values are the 6-class palettes with the lightest class
-   dropped, which is too pale to see as a mark on white. */
+   dropped, which is too pale to see as a mark on white. Other numbers of
+   lightness steps are interpolated in CIELAB between those five classes.
+
+   ColorBrewer has only five single-hue ramps, so hues 6 to 8 are built to
+   match Blues: the same L* and chroma at each class, at other hue angles.
+   The order puts the most distinct hues first, so fewer steps stay
+   distinct. */
 
 const RAMPS = [
   ["#c6dbef", "#9ecae1", "#6baed6", "#3182bd", "#08519c"],  // Blues
-  ["#c7e9c0", "#a1d99b", "#74c476", "#31a354", "#006d2c"],  // Greens
   ["#fdd0a2", "#fdae6b", "#fd8d3c", "#e6550d", "#a63603"],  // Oranges
-  ["#fcbba1", "#fc9272", "#fb6a4a", "#de2d26", "#a50f15"],  // Reds
+  ["#c7e9c0", "#a1d99b", "#74c476", "#31a354", "#006d2c"],  // Greens
   ["#dadaeb", "#bcbddc", "#9e9ac8", "#756bb1", "#54278f"],  // Purples
+  ["#fcbba1", "#fc9272", "#fb6a4a", "#de2d26", "#a50f15"],  // Reds
+  ["#badedd", "#97cecc", "#58b4b2", "#088a89", "#015c5c"],  // teal, built
+  ["#ecd0dd", "#e1b9cd", "#d194b4", "#b0638e", "#8c2e67"],  // magenta, built
+  ["#dfd7c0", "#cec3a1", "#b4a572", "#8a7c39", "#5e5301"],  // olive, built
 ];
 
 const GREYS = ["#d9d9d9", "#bdbdbd", "#969696", "#636363", "#252525"];
 
+function hexToLab(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const c = [n >> 16 & 255, n >> 8 & 255, n & 255].map(v => {
+    v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  });
+  const f = t => t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116;
+  const X = f((0.4124 * c[0] + 0.3576 * c[1] + 0.1805 * c[2]) / 0.95047);
+  const Y = f(0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]);
+  const Z = f((0.0193 * c[0] + 0.1192 * c[1] + 0.9505 * c[2]) / 1.08883);
+  return [116 * Y - 16, 500 * (X - Y), 200 * (Y - Z)];
+}
+
+function labToHex([L, a, b]) {
+  const fy = (L + 16) / 116, fx = fy + a / 500, fz = fy - b / 200;
+  const fi = t => t ** 3 > 0.008856 ? t ** 3 : (t - 16 / 116) / 7.787;
+  const X = 0.95047 * fi(fx), Y = fi(fy), Z = 1.08883 * fi(fz);
+  const lin = [
+    3.2406 * X - 1.5372 * Y - 0.4986 * Z,
+    -0.9689 * X + 1.8758 * Y + 0.0415 * Z,
+    0.0557 * X - 0.2040 * Y + 1.0570 * Z,
+  ];
+  return "#" + lin.map(v => {
+    v = v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055;
+    return Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, "0");
+  }).join("");
+}
+
+const labCache = new Map();
+function rampAt(ramp, t) {
+  const p = t * (ramp.length - 1), i = Math.min(ramp.length - 2, Math.floor(p)), k = p - i;
+  if (k < 1e-6) return ramp[i];
+  if (k > 1 - 1e-6) return ramp[i + 1];
+  const key = ramp[i] + ramp[i + 1] + k.toFixed(4);
+  if (!labCache.has(key)) {
+    const a = hexToLab(ramp[i]), b = hexToLab(ramp[i + 1]);
+    labCache.set(key, labToHex(a.map((v, j) => v + (b[j] - v) * k)));
+  }
+  return labCache.get(key);
+}
+
 function colorOf(m) {
-  if (m.hue === null) return m.light === null ? FLAT : GREYS[m.light];
-  return RAMPS[m.hue][m.light === null ? SOLO_CLASS : m.light];
+  if (m.hue === null) return m.light === null ? FLAT : rampAt(GREYS, m.light);
+  return rampAt(RAMPS[m.hue], m.light === null ? SOLO_T : m.light);
 }
 
-/* ---------------- properties ----------------
-   Bertin's characteristics of each visual variable, plus how the two
-   behave when they are read at the same time. */
-
-const PROPS = {
-  size:        { tags: "selective · ordered · quantitative · dissociative", steps: "4–5" },
-  lightness:   { tags: "selective · ordered · dissociative",                steps: "5–6" },
-  texture:     { tags: "selective · ordered · associative",                 steps: "4–5" },
-  hue:         { tags: "selective · associative",                           steps: "7–8" },
-  orientation: { tags: "selective · associative",                           steps: "4" },
-  shape:       { tags: "associative, not selective",                        steps: "many, unordered" },
-};
-
-const PAIRS = {
-  "hue|size":            "largely separable; hue weakens on the smallest marks",
-  "lightness|size":      "partly integral; small marks lose lightness steps",
-  "orientation|size":    "largely separable; small marks lose orientation",
-  "shape|size":          "interfering; small marks lose shape",
-  "size|texture":        "interfering; small marks carry little texture",
-  "hue|lightness":       "partly integral; both are colour, and dark or pale narrows hue",
-  "lightness|orientation": "largely separable",
-  "lightness|shape":     "separable; pale marks lose shape",
-  "lightness|texture":   "integral; hatch density itself reads as lightness",
-  "hue|orientation":     "largely separable",
-  "hue|shape":           "separable",
-  "hue|texture":         "largely separable; fine hatch dilutes hue",
-  "orientation|shape":   "interfering; rotation changes apparent shape",
-  "orientation|texture": "coupled; the hatch rotates with the mark",
-  "shape|texture":       "interfering; thin shapes hold few hatch lines",
-};
-
-function pairNote(a, b) {
-  return PAIRS[[a, b].sort().join("|")] || "";
-}
 
 /* ---------------- data ---------------- */
 
@@ -333,14 +410,20 @@ function makePool() {
   pool = [];
   for (let i = 0; i < POOL; i++) {
     pool.push({
-      v1: Math.floor(rng() * LEVELS),
-      v2: Math.floor(rng() * LEVELS),
+      u1: rng(),   // random value of each variable, turned into a step
+      u2: rng(),   // by however many steps its channel currently has
       rx: rng(),
       ry: rng(),
       rc1: rng(),
       rc2: rng(),
       x: 0, y: 0,
     });
+  }
+  // end heights of a line, drawn after the point values so grid and
+  // scatter fields for a given seed are unchanged
+  for (const d of pool) {
+    d.y0 = rng();
+    d.y1 = rng();
   }
   data = pool.slice(0, count);
 }
@@ -351,13 +434,20 @@ let sel = { c1: "hue", c2: "size" };
 let mode = "grid";
 let corr = 0;          // 0 = values independent of position, 1 = fully determined by it
 let target = "both";   // which variable the correlation applies to
-let field = "gradient";// shape of the spatial structure
+let iso = { 1: new Set(), 2: new Set() };   // levels currently isolated
 
 /* ---------------- layout ----------------
    Marks are either packed into an even grid or scattered at random over
-   the whole canvas. Position is deliberately not a channel here. */
+   the whole canvas. Position is deliberately not a channel here.
+
+   Lines need a position for the spatial correlation too, but a line
+   spans the whole plot, so it uses what the line looks like instead: its
+   slope runs left to right and its mean height top to bottom, placed by
+   rank so they spread evenly. Regions over that space give lines that look
+   alike similar values. */
 
 let markScale = 1;
+const SLOPE_X = [0.18, 0.82];   // shared start and end x, as a share of the width
 
 function computeLayout() {
   const iw = W - 2 * PAD, ih = H - 2 * PAD;
@@ -374,6 +464,22 @@ function computeLayout() {
       d.x = cx + (i % cols - (cols - 1) / 2) * sx;
       d.y = cy + (Math.floor(i / cols) - (rows - 1) / 2) * sy;
     });
+  } else if (mode === "lines") {
+    step = Math.sqrt(iw * ih / n);
+    const x0 = PAD + SLOPE_X[0] * iw, x1 = PAD + SLOPE_X[1] * iw;
+    const rank = f => {
+      const order = data.map((_, i) => i).sort((a, b) => f(data[a]) - f(data[b]));
+      const out = new Array(n);
+      order.forEach((idx, r) => { out[idx] = (r + 0.5) / n; });
+      return out;
+    };
+    const slope = rank(d => d.y0 - d.y1);          // rising to falling
+    const height = rank(d => 2 - d.y0 - d.y1);     // high to low on screen
+    data.forEach((d, i) => {
+      d.pts = [[x0, PAD + (1 - d.y0) * ih], [x1, PAD + (1 - d.y1) * ih]];
+      d.x = PAD + slope[i] * iw;
+      d.y = PAD + height[i] * ih;
+    });
   } else {
     step = Math.sqrt(iw * ih / n);
     data.forEach(d => {
@@ -388,38 +494,35 @@ function computeLayout() {
 
 /* ---------------- spatial correlation ----------------
    Layout is computed first, then each mark's values are drawn either from
-   its random draw or from a gradient implied by where it landed (V1 runs
-   left to right, V2 top to bottom). The slider is the share of marks that
-   take the spatial value, so patterns emerge gradually. */
+   its random draw or from the region it landed in: each variable has its
+   own smooth 2D field, so values clump into irregular patches with no
+   preferred direction. The slider is the share of marks that take the
+   spatial value, so patterns emerge gradually. */
 
 // Interpolated noise clumps around its middle, so levels are assigned by
-// rank instead of by value; that keeps all five equally represented, as
-// they are under the gradient.
-function regionLevels(grid) {
+// rank instead of by value; that keeps every step equally represented.
+function regionLevels(grid, n) {
   const iw = W - 2 * PAD, ih = H - 2 * PAD;
   const vals = data.map(d => sampleField(grid, (d.x - PAD) / iw, (d.y - PAD) / ih));
   const order = vals.map((_, i) => i).sort((a, b) => vals[a] - vals[b]);
   const out = new Array(vals.length);
   order.forEach((idx, rank) => {
-    out[idx] = Math.min(LEVELS - 1, Math.floor(rank / order.length * LEVELS));
+    out[idx] = Math.min(n - 1, Math.floor(rank / order.length * n));
   });
   return out;
 }
 
 function assignValues() {
-  const iw = W - 2 * PAD, ih = H - 2 * PAD;
-  const level = f => Math.max(0, Math.min(LEVELS - 1, Math.floor(f * LEVELS)));
+  const n1 = steps[sel.c1], n2 = steps[sel.c2];
+  const level = (f, n) => Math.max(0, Math.min(n - 1, Math.floor(f * n)));
   const t1 = target === "1" || target === "both";
   const t2 = target === "2" || target === "both";
-  const regions = field === "regions";
-  const r1 = regions ? regionLevels(noise1) : null;
-  const r2 = regions ? regionLevels(noise2) : null;
+  const r1 = regionLevels(noise1, n1);
+  const r2 = regionLevels(noise2, n2);
 
   data.forEach((d, i) => {
-    const g1 = regions ? r1[i] : level((d.x - PAD) / iw);
-    const g2 = regions ? r2[i] : level((d.y - PAD) / ih);
-    d.a1 = (t1 && d.rc1 < corr) ? g1 : d.v1;
-    d.a2 = (t2 && d.rc2 < corr) ? g2 : d.v2;
+    d.a1 = (t1 && d.rc1 < corr) ? r1[i] : level(d.u1, n1);
+    d.a2 = (t2 && d.rc2 < corr) ? r2[i] : level(d.u2, n2);
   });
 }
 
@@ -442,6 +545,23 @@ function glyph(shape, s) {
     case "square":   return el("rect", { x: k(-7.5), y: k(-7.5), width: k(15), height: k(15) });
     case "triangle": return el("path", { d: `M0,${k(-10)} L${k(8.7)},${k(7)} L${k(-8.7)},${k(7)} Z` });
     case "plus":     return el("path", { d: `M${k(-2.8)},${k(-10)} L${k(2.8)},${k(-10)} L${k(2.8)},${k(-2.8)} L${k(10)},${k(-2.8)} L${k(10)},${k(2.8)} L${k(2.8)},${k(2.8)} L${k(2.8)},${k(10)} L${k(-2.8)},${k(10)} L${k(-2.8)},${k(2.8)} L${k(-10)},${k(2.8)} L${k(-10)},${k(-2.8)} L${k(-2.8)},${k(-2.8)} Z` });
+    case "star": {
+      const pts = [];
+      for (let i = 0; i < 10; i++) {
+        const r = i % 2 ? 5.4 : 12, a = Math.PI * (i / 5 - 0.5);
+        pts.push(`${k(r * Math.cos(a))},${k(r * Math.sin(a))}`);
+      }
+      return el("path", { d: `M${pts.join(" L")} Z` });
+    }
+    case "hexagon": {
+      const pts = [];
+      for (let i = 0; i < 6; i++) {
+        const a = Math.PI * (i / 3 + 1 / 6);
+        pts.push(`${k(9.5 * Math.cos(a))},${k(9.5 * Math.sin(a))}`);
+      }
+      return el("path", { d: `M${pts.join(" L")} Z` });
+    }
+    case "diamond":  return el("path", { d: `M0,${k(-10.5)} L${k(10.5)},0 L0,${k(10.5)} L${k(-10.5)},0 Z` });
     case "chevron":  return el("path", { d: `M${k(-9)},${k(-7.5)} L0,${k(1.5)} L${k(9)},${k(-7.5)} L${k(9)},${k(-1)} L0,${k(8)} L${k(-9)},${k(-1)} Z` });
   }
 }
@@ -455,11 +575,11 @@ function context(svg) {
   return { defs, seen: new Set(), prefix: `c${ctxSeq++}` };
 }
 
-function hatch(ctx, level, color) {
-  const id = `${ctx.prefix}tx${level}-${color.replace("#", "")}`;
+function hatch(ctx, t, color) {
+  const sp = +geo(TEXTURE_RANGE, t).toFixed(2);
+  const id = `${ctx.prefix}tx${Math.round(sp * 100)}-${color.replace("#", "")}`;
   if (!ctx.seen.has(id)) {
     ctx.seen.add(id);
-    const sp = TEXTURES[level];
     const pat = el("pattern", {
       id,
       width: sp, height: sp,
@@ -475,22 +595,44 @@ function hatch(ctx, level, color) {
   return `url(#${id})`;
 }
 
+// Sets one channel on a mark for step `level` of the channel's current
+// number of steps. Orientation spreads its steps evenly over 180°.
+function applyStep(m, channel, level) {
+  const n = steps[channel], t = frac(level, n);
+  switch (channel) {
+    case "size":        m.size    = sizeOf(t);         break;
+    case "lightness":   m.light   = t;                 break;
+    case "hue":         m.hue     = level;             break;
+    case "orientation": m.angle   = level * 180 / n;   break;
+    case "shape":       m.shape   = SHAPES[level];     break;
+    case "texture":     m.texture = t;                 break;
+  }
+}
+
 function encode(level1, level2) {
   const m = Object.assign({}, DEFAULTS, { shape: baseShape() });
-  const apply = (channel, level) => {
-    switch (channel) {
-      case "size":        m.size    = SIZES[level];     break;
-      case "lightness":   m.light   = LIGHTNESS[level]; break;
-      case "hue":         m.hue     = HUES[level];      break;
-      case "orientation": m.angle   = ANGLES[level];    break;
-      case "shape":       m.shape   = SHAPES[level];    break;
-      case "texture":     m.texture = level;            break;
-    }
-  };
-  apply(sel.c1, level1);
-  apply(sel.c2, level2);
+  applyStep(m, sel.c1, level1);
+  applyStep(m, sel.c2, level2);
   m.size *= markScale;
   return m;
+}
+
+// A series or an edge, drawn as a polyline through its points.
+function lineMark(m, pts) {
+  const g = el("g", {});
+  const path = el("path", {
+    d: "M" + pts.map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" L"),
+    fill: "none",
+    "stroke-linejoin": "round",
+    stroke: colorOf(m),
+    "stroke-width": +(LINE_WIDTH * m.size).toFixed(2),
+  });
+  if (m.texture !== null) {
+    const p = +geo(DASH_RANGE, m.texture).toFixed(2);
+    path.setAttribute("stroke-dasharray", `${p / 2} ${p / 2}`);
+  }
+  g.appendChild(path);
+  return g;
 }
 
 function mark(ctx, m, x, y) {
@@ -515,69 +657,132 @@ function draw() {
   const ctx = context(stage);
   computeLayout();
   assignValues();
-  for (const d of data) stage.appendChild(mark(ctx, encode(d.a1, d.a2), d.x, d.y));
+
+  // Marks outside the isolated levels stay in place but drop back, so the
+  // spatial pattern of the selected class is read in context.
+  // Lines cross each other, so the faded ones are drawn first and the
+  // isolated ones stay on top.
+  const on1 = iso[1].size > 0, on2 = iso[2].size > 0;
+  const matches = d => (!on1 || iso[1].has(d.a1)) && (!on2 || iso[2].has(d.a2));
+  const order = isLines() ? [...data].sort((a, b) => matches(a) - matches(b)) : data;
+  if (isLines()) {
+    for (const u of SLOPE_X) {
+      const x = (PAD + u * (W - 2 * PAD)).toFixed(1);
+      stage.appendChild(el("line", { x1: x, x2: x, y1: PAD - 8, y2: H - PAD + 8, stroke: "#e4e4e4", "stroke-width": 1 }));
+    }
+  }
+  let hits = 0;
+  for (const d of order) {
+    const match = matches(d);
+    if (match) hits++;
+    const m = encode(d.a1, d.a2);
+    const g = isLines() ? lineMark(m, d.pts) : mark(ctx, m, d.x, d.y);
+    if (!match) g.setAttribute("opacity", 0.12);
+    stage.appendChild(g);
+  }
+
+
+  const info = document.getElementById("isoInfo");
+  if (info) info.textContent = (on1 || on2) ? `isolating ${hits} of ${data.length}` : "";
 }
 
 /* ---------------- legends ---------------- */
 
 function swatch(channel, level) {
   const m = Object.assign({}, DEFAULTS, { shape: baseShape() });
-  if (channel === "size")        m.size    = SIZES[level];
-  if (channel === "lightness")   m.light   = LIGHTNESS[level];
-  if (channel === "hue")         m.hue     = HUES[level];
-  if (channel === "orientation") m.angle   = ANGLES[level];
-  if (channel === "shape")       m.shape   = SHAPES[level];
-  if (channel === "texture")     m.texture = level;
+  applyStep(m, channel, level);
   const svg = el("svg", { width: 34, height: 36, viewBox: "0 0 34 36" });
   const ctx = context(svg);
-  svg.appendChild(mark(ctx, m, 17, 18));
+  svg.appendChild(isLines() ? lineMark(m, [[4, 18], [30, 18]]) : mark(ctx, m, 17, 18));
   return svg;
 }
 
-function legendFor(varName, channel) {
+function legendFor(varName, channel, which) {
   const box = document.createElement("div");
   box.className = "legend";
   const head = document.createElement("div");
-  head.innerHTML = `${varName} &nbsp;<b>${channel}</b>`;
+  head.className = "lhead";
+  head.innerHTML = `<span>${varName} &nbsp;<b>${channelLabel(channel)}</b></span>`;
+  const n = steps[channel];
+  const stepper = document.createElement("span");
+  stepper.className = "stepper";
+  const bump = (delta, label, title) => {
+    const b = document.createElement("button");
+    b.textContent = label;
+    b.title = title;
+    b.disabled = n + delta < STEPS_MIN || n + delta > STEPS_MAX[channel];
+    b.addEventListener("click", () => {
+      steps[channel] = n + delta;
+      iso[which] = new Set();
+      render();
+    });
+    return b;
+  };
+  const num = document.createElement("span");
+  num.textContent = n;
+  stepper.append(bump(-1, "−", "fewer steps"), num, bump(+1, "+", "more steps"));
+  head.appendChild(stepper);
   box.appendChild(head);
 
   const strip = document.createElement("div");
   strip.className = "strip";
   strip.style.display = "flex";
   strip.style.alignItems = "center";
-  for (let i = 0; i < LEVELS; i++) strip.appendChild(swatch(channel, i));
+
+  for (let i = 0; i < n; i++) {
+    const sw = document.createElement("span");
+    sw.className = iso[which].has(i) ? "sw on" : "sw";
+    sw.title = `isolate level ${i + 1}`;
+    sw.appendChild(swatch(channel, i));
+    sw.addEventListener("click", () => {
+      const set = iso[which];
+      if (set.has(i)) set.delete(i); else set.add(i);
+      render();
+    });
+    strip.appendChild(sw);
+  }
   box.appendChild(strip);
   return box;
-}
-
-function drawNotes() {
-  const block = (label, channel) => `
-    <section>
-      <h2>${label}</h2>
-      <div><span class="name">${channel}</span></div>
-      <div>${PROPS[channel].tags}</div>
-      <div class="steps">${PROPS[channel].steps} steps</div>
-    </section>`;
-  document.getElementById("notes").innerHTML =
-    block("Variable 1", sel.c1) +
-    block("Variable 2", sel.c2) +
-    `<section><h2>Read together</h2><div>${pairNote(sel.c1, sel.c2)}</div></section>`;
 }
 
 function drawLegends() {
   const host = document.getElementById("legends");
   host.textContent = "";
-  host.appendChild(legendFor("Variable 1", sel.c1));
-  host.appendChild(legendFor("Variable 2", sel.c2));
-  document.getElementById("combo").textContent = `${sel.c1} × ${sel.c2}`;
+  host.appendChild(legendFor("Variable 1", sel.c1, 1));
+  host.appendChild(legendFor("Variable 2", sel.c2, 2));
+  const info = document.createElement("div");
+  info.id = "isoInfo";
+  host.appendChild(info);
+  document.getElementById("combo").textContent = `${channelLabel(sel.c1)} × ${channelLabel(sel.c2)}`;
 }
 
 /* ---------------- matrix ---------------- */
 
 // Only the lower triangle is drawn: a pair is the same pair either way
 // round. Row labels sit in the gutter; column labels sit on the diagonal,
-// directly above the first square of the column they name.
+// directly above the first square of the column they name. Hovering a cell
+// previews its pair; clicking keeps it, and leaving the matrix returns to
+// the kept pair.
+let held = null;   // the kept selection while a hover preview is showing
+
+function preview(r, c) {
+  if (!available(r) || !available(c)) return;
+  if (!held) held = { sel, iso };
+  if (sel.c1 === r && sel.c2 === c) return;
+  sel = { c1: r, c2: c };
+  iso = held.sel.c1 === r && held.sel.c2 === c ? held.iso : { 1: new Set(), 2: new Set() };
+  render();
+}
+
+function endPreview() {
+  if (!held) return;
+  ({ sel, iso } = held);
+  held = null;
+  render();
+}
+
 function buildMatrix() {
+  const table = document.getElementById("matrix");
   const tbody = document.createElement("tbody");
   CHANNELS.forEach((r, ri) => {
     const tr = document.createElement("tr");
@@ -592,8 +797,13 @@ function buildMatrix() {
       if (ri > ci) {
         div.dataset.r = r;
         div.dataset.c = c;
-        div.addEventListener("click", () => { sel = { c1: r, c2: c }; render(); });
-        div.addEventListener("mouseenter", () => highlight(r, c));
+        div.addEventListener("click", () => {
+          if (!available(r) || !available(c)) return;
+          sel = { c1: r, c2: c };
+          if (held) held = { sel, iso };
+          render();
+        });
+        div.addEventListener("mouseenter", () => { highlight(r, c); preview(r, c); });
         div.addEventListener("mouseleave", () => highlight(null, null));
       } else if (ri === ci) {
         div.className += " name";
@@ -609,12 +819,13 @@ function buildMatrix() {
     });
     tbody.appendChild(tr);
   });
-  document.getElementById("matrix").appendChild(tbody);
+  table.appendChild(tbody);
+  table.addEventListener("mouseleave", endPreview);
 }
 
 // transient label highlight while the pointer is over a square
 function highlight(rowName, colName) {
-  for (const th of document.querySelectorAll("#matrix th")) {
+  for (const th of document.querySelectorAll("#matrix tbody th")) {
     th.classList.toggle("hi", th.dataset.name === rowName);
   }
   for (const span of document.querySelectorAll(".cell.name span")) {
@@ -622,15 +833,24 @@ function highlight(rowName, colName) {
   }
 }
 
+// the kept pair is marked, not the one being previewed
 function markSelection() {
+  const kept = held ? held.sel : sel;
   for (const cell of document.querySelectorAll(".cell")) {
-    cell.classList.toggle("on", cell.dataset.r === sel.c1 && cell.dataset.c === sel.c2);
+    cell.classList.toggle("on", cell.dataset.r === kept.c1 && cell.dataset.c === kept.c2);
+    if (cell.dataset.r) {
+      const na = !available(cell.dataset.r) || !available(cell.dataset.c);
+      cell.classList.toggle("na", na);
+      cell.title = na ? "not available on lines" : "";
+    }
   }
-  for (const th of document.querySelectorAll("#matrix th")) {
-    th.classList.toggle("on", th.dataset.name === sel.c1);
+  for (const th of document.querySelectorAll("#matrix tbody th")) {
+    th.classList.toggle("on", th.dataset.name === kept.c1);
+    th.classList.toggle("na", !available(th.dataset.name));
   }
   for (const span of document.querySelectorAll(".cell.name span")) {
-    span.classList.toggle("on", span.dataset.name === sel.c2);
+    span.classList.toggle("on", span.dataset.name === kept.c2);
+    span.classList.toggle("na", !available(span.dataset.name));
   }
 }
 
@@ -638,7 +858,6 @@ function markSelection() {
 
 function render() {
   markSelection();
-  drawNotes();
   drawLegends();
   draw();
 }
@@ -649,12 +868,28 @@ document.getElementById("shuffle").addEventListener("click", () => {
   draw();
 });
 
+// Switching to a line mode with a pair lines can't show falls back to hue × size,
+// and switching back restores the earlier pair if it wasn't changed since.
+const LINE_FALLBACK = { c1: "hue", c2: "size" };
+let pointSel = null;
+
 document.getElementById("mode").addEventListener("click", e => {
   const btn = e.target.closest("button");
   if (!btn) return;
   mode = btn.dataset.mode;
   for (const b of e.currentTarget.children) b.classList.toggle("on", b === btn);
-  draw();
+  if (isLines() && (!available(sel.c1) || !available(sel.c2))) {
+    pointSel = sel;
+    sel = { ...LINE_FALLBACK };
+    iso = { 1: new Set(), 2: new Set() };
+  } else if (!isLines() && pointSel) {
+    if (sel.c1 === LINE_FALLBACK.c1 && sel.c2 === LINE_FALLBACK.c2) {
+      sel = pointSel;
+      iso = { 1: new Set(), 2: new Set() };
+    }
+    pointSel = null;
+  }
+  render();
 });
 
 const countInput = document.getElementById("count");
@@ -669,14 +904,6 @@ const corrInput = document.getElementById("corr");
 corrInput.addEventListener("input", () => {
   corr = +corrInput.value / 100;
   document.getElementById("corrVal").textContent = `${corrInput.value}%`;
-  draw();
-});
-
-document.getElementById("field").addEventListener("click", e => {
-  const btn = e.target.closest("button");
-  if (!btn) return;
-  field = btn.dataset.f;
-  for (const b of e.currentTarget.children) b.classList.toggle("on", b === btn);
   draw();
 });
 
